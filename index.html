@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,41 +32,57 @@ body {
 .error-box{
  color:red;font-size:.9rem;margin-top:10px;
 }
+#loadingSpinner {
+  display: none;
+  width:100%;
+  text-align:center;
+  margin-bottom: 10px;
+}
 </style>
 </head>
 <body>
 
-<nav class="navbar navbar-dark px-3">
+<nav class="navbar navbar-dark px-3" aria-label="Main Navigation">
   <span class="navbar-brand fw-bold text-white">Tara Bliss Store</span>
 </nav>
 
+<main>
 <div class="container py-5">
   <h2 class="section-title text-center mb-4">Track Your Order</h2>
   <div class="track-box mx-auto" style="max-width:450px;">
-    <label class="fw-semibold mb-2">Enter Order ID</label>
-    <input id="orderInput" class="form-control mb-3" placeholder="Enter Order ID">
-    <button class="btn-custom w-100" onclick="trackOrder()">Track Order</button>
-    <div id="orderStatus" class="order-status" style="display:none;"></div>
+    <form id="orderForm" autocomplete="off" onsubmit="trackOrder(event)">
+      <label class="fw-semibold mb-2" for="orderInput">Enter Order ID</label>
+      <input id="orderInput" class="form-control mb-3" placeholder="Enter Order ID" autocomplete="off">
+      <button class="btn-custom w-100" type="submit">Track Order</button>
+    </form>
+    <div id="orderStatus" class="order-status" style="display:none;" aria-live="polite"></div>
   </div>
 </div>
 
 <div class="container py-5">
   <h2 class="section-title text-center mb-4">Login or Create Account</h2>
   <div class="track-box mx-auto" style="max-width:450px;">
-    <button class="btn btn-danger w-100 mb-3" onclick="googleLogin()">Continue with Google</button>
+    <div id="loadingSpinner">
+      <div class="spinner-border text-danger" role="status" aria-label="Loading"><span class="visually-hidden">Loading...</span></div>
+    </div>
+    <button class="btn btn-danger w-100 mb-3" onclick="googleLogin()" type="button">Continue with Google</button>
     <div class="text-center fw-bold mb-3">or</div>
-    <input id="email" class="form-control mb-2" placeholder="Email">
-    <input id="password" type="password" class="form-control mb-3" placeholder="Password">
-    <button class="btn-custom w-100 mb-2" onclick="emailLogin()">Login / Sign Up</button>
-    <div id="authError" class="error-box"></div>
+    <form id="authForm" autocomplete="off" onsubmit="emailLogin(event)">
+      <input id="email" class="form-control mb-2" placeholder="Email" autocomplete="username" required type="email">
+      <input id="password" type="password" class="form-control mb-3" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn-custom w-100 mb-2" type="submit">Login / Sign Up</button>
+    </form>
+    <div id="authError" class="error-box" aria-live="polite"></div>
   </div>
 </div>
+</main>
 
 <script type="module">
+// ---- Firebase Auth ----
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { 
  getAuth, GoogleAuthProvider, signInWithPopup,
- signInWithEmailAndPassword, createUserWithEmailAndPassword 
+ signInWithEmailAndPassword, createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -82,23 +97,43 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+function showSpinner(show) {
+  document.getElementById("loadingSpinner").style.display = show ? "block" : "none";
+}
+
 window.googleLogin = async () => {
- const provider = new GoogleAuthProvider();
  const errBox = document.getElementById("authError");
+ showSpinner(true);
  errBox.textContent="";
  try{
+   const provider = new GoogleAuthProvider();
    await signInWithPopup(auth,provider);
    alert("Logged in successfully!");
  }catch(e){
    errBox.textContent="Google Login Failed: "+e.message;
  }
+ showSpinner(false);
 };
 
-window.emailLogin = async ()=>{
- const email=document.getElementById("email").value;
+function validateEmail(email){
+ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+window.emailLogin = async (e)=>{
+ if (e) e.preventDefault();
+ const email=document.getElementById("email").value.trim();
  const pass=document.getElementById("password").value;
  const err=document.getElementById("authError");
  err.textContent="";
+ if (!validateEmail(email)) {
+   err.textContent = "Please enter a valid email address.";
+   return;
+ }
+ if (pass.length < 6) {
+   err.textContent = "Password should be at least 6 characters.";
+   return;
+ }
+ showSpinner(true);
  try{
    await signInWithEmailAndPassword(auth,email,pass);
    alert("Logged in successfully!");
@@ -114,22 +149,28 @@ window.emailLogin = async ()=>{
       err.textContent="Login Failed: "+errSign.message;
    }
  }
+ showSpinner(false);
 };
 </script>
 
 <script>
-function trackOrder(){
+// ---- Order Tracking Logic ----
+function trackOrder(e){
+ if(e) e.preventDefault();
  const id=document.getElementById("orderInput").value.trim();
  const status=document.getElementById("orderStatus");
- if(!id){
+ if(!id || id.length < 4){
    status.style.display="block";
-   status.innerHTML="Please enter a valid Order ID.";
+   status.innerHTML="Please enter a valid Order ID (min 4 chars).";
    return;
  }
  status.style.display="block";
  status.innerHTML="<b>Order "+id+"</b><br>Your order is being processed. Expected delivery in 3 days.";
 }
+// Accessibility: handle Enter press for inputs
+document.getElementById("orderInput").addEventListener("keyup",function(e){
+  if(e.key==="Enter"){trackOrder(e);}
+});
 </script>
-
 </body>
 </html>
